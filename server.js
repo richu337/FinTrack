@@ -65,6 +65,15 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
+// Auth routes
+app.get('/login', (req, res) => {
+  res.render('login');
+});
+
+app.get('/signup', (req, res) => {
+  res.render('signup');
+});
+
 // Dashboard route
 app.get('/dashboard', (req, res) => {
   res.render('dashboard');
@@ -92,6 +101,7 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 FinTrack server running on http://localhost:${PORT}`);
   console.log(`📊 Dashboard available at http://localhost:${PORT}/dashboard`);
+  console.log(`🔐 Login at http://localhost:${PORT}/login`);
 });
 
 module.exports = { app, db };
