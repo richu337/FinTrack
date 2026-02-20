@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - FinTrack</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">💰</span>
+                <span class="logo-text">FinTrack</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="overview">
+                    <span class="nav-icon">📊</span>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" data-view="expenses">
+                    <span class="nav-icon">💸</span>
+                    <span>Expenses</span>
+                </a>
+                <a href="#" class="nav-item" data-view="budgets">
+                    <span class="nav-icon">🎯</span>
+                    <span>Budgets</span>
+                </a>
+                <a href="#" class="nav-item" data-view="reports">
+                    <span class="nav-icon">📈</span>
+                    <span>Reports</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="dashboard-header">
+                <h1 id="view-title">Overview</h1>
+                <div class="header-actions">
+                    <select id="period-selector" class="period-select">
+                        <option value="week">This Week</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="year">This Year</option>
+                    </select>
+                    <button class="btn btn-primary" id="add-expense-btn">+ Add Expense</button>
+                </div>
+            </header>
+
+            <!-- Overview View -->
+            <div id="overview-view" class="view active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Spent</div>
+                        <div class="stat-value" id="total-spent">₹0</div>
+                        <div class="stat-change positive">+0% from last period</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Transactions</div>
+                        <div class="stat-value" id="total-transactions">0</div>
+                        <div class="stat-change">This period</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Budget Status</div>
+                        <div class="stat-value" id="budget-status">Good</div>
+                        <div class="stat-change">Within limits</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Avg. Daily</div>
+                        <div class="stat-value" id="avg-daily">₹0</div>
+                        <div class="stat-change">Per day</div>
+                    </div>
+                </div>
+
+                <div class="content-grid">
+                    <div class="card">
+                        <h3 class="card-title">Spending by Category</h3>
+                        <div id="category-chart" class="chart-container">
+                            <div class="empty-state">No expenses yet. Add your first expense to see insights!</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Recent Expenses</h3>
+                        <div id="recent-expenses" class="expense-list">
+                            <div class="empty-state">No recent expenses</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Spending Trend</h3>
+                    <div id="trend-chart" class="chart-container">
+                        <div class="empty-state">Add expenses to see your spending trend</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expenses View -->
+            <div id="expenses-view" class="view">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">All Expenses</h3>
+                        <div class="filters">
+                            <select id="category-filter" class="filter-select">
+                                <option value="">All Categories</option>
+                                <option value="Food">Food</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Bills">Bills</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Education">Education</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="all-expenses" class="expense-list">
+                        <div class="empty-state">No expenses found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budgets View -->
+            <div id="budgets-view" class="view">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Budget Management</h3>
+                        <button class="btn btn-primary" id="add-budget-btn">+ Add Budget</button>
+                    </div>
+                    <div id="budgets-list" class="budgets-container">
+                        <div class="empty-state">No budgets set. Create your first budget!</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports View -->
+            <div id="reports-view" class="view">
+                <div class="card">
+                    <h3 class="card-title">Top Spending Categories</h3>
+                    <div id="top-categories" class="categories-list">
+                        <div class="empty-state">No data available</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="expense-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Expense</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="expense-form">
+                <div class="form-group">
+                    <label for="expense-amount">Amount (₹)</label>
+                    <input type="number" id="expense-amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="expense-category">Category</label>
+                    <select id="expense-category" required>
+                        <option value="">Select Category</option>
+                        <option value="Food">🍔 Food</option>
+                        <option value="Travel">🚗 Travel</option>
+                        <option value="Shopping">🛍 Shopping</option>
+                        <option value="Bills">📄 Bills</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Education">📚 Education</option>
+                        <option value="Other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="expense-description">Description</label>
+                    <input type="text" id="expense-description" placeholder="Optional">
+                </div>
+                <div class="form-group">
+                    <label for="expense-date">Date</label>
+                    <input type="date" id="expense-date" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Budget Modal -->
+    <div id="budget-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Set Budget</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="budget-form">
+                <div class="form-group">
+                    <label for="budget-category">Category</label>
+                    <select id="budget-category" required>
+                        <option value="">Select Category</option>
+                        <option value="Food">🍔 Food</option>
+                        <option value="Travel">🚗 Travel</option>
+                        <option value="Shopping">🛍 Shopping</option>
+                        <option value="Bills">📄 Bills</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Education">📚 Education</option>
+                        <option value="Other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="budget-amount">Budget Amount (₹)</label>
+                    <input type="number" id="budget-amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="budget-period">Period</label>
+                    <select id="budget-period" required>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly" selected>Monthly</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Set Budget</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>
