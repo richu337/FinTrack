@@ -1,6 +1,12 @@
 // Configuration
 const API_BASE = '/api';
-const USER_ID = 'demo-user'; // In production, this would come from authentication
+
+// Get user ID from localStorage (set by auth.js)
+function getUserId() {
+    return localStorage.getItem('userId') || 'demo-user';
+}
+
+const USER_ID = getUserId();
 
 // State
 let currentView = 'overview';
@@ -10,10 +16,45 @@ let budgets = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if user is logged in
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+        // Redirect to login if not authenticated
+        window.location.href = '/login';
+        return;
+    }
+
+    // Display user email in header
+    const userEmail = localStorage.getItem('userEmail');
+    if (userEmail) {
+        updateUserDisplay(userEmail);
+    }
+
     initializeEventListeners();
     loadData();
     setTodayDate();
 });
+
+// Update user display
+function updateUserDisplay(email) {
+    const headerActions = document.querySelector('.header-actions');
+    const userInfo = document.createElement('div');
+    userInfo.className = 'user-info';
+    userInfo.innerHTML = `
+        <span class="user-email">${email}</span>
+        <button class="btn btn-secondary" id="logout-btn">Logout</button>
+    `;
+    headerActions.insertBefore(userInfo, headerActions.firstChild);
+
+    // Add logout handler
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+        if (confirm('Are you sure you want to logout?')) {
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userEmail');
+            window.location.href = '/login';
+        }
+    });
+}
 
 // Event Listeners
 function initializeEventListeners() {
