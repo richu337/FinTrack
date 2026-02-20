@@ -75,6 +75,23 @@
 .header-actions {
     display: flex;
     gap: 15px;
+    align-items: center;
+}
+
+/* User Info */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--light-gray);
+    border-radius: 8px;
+}
+
+.user-email {
+    font-size: 14px;
+    color: var(--dark);
+    font-weight: 500;
 }
 
 .period-select {
@@ -460,6 +477,16 @@ form {
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .stats-grid,
