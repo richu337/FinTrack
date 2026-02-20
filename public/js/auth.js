@@ -1,13 +1,18 @@
-// Firebase Web SDK Configuration
-// You'll need to add your Firebase web config here
+// ⚠️ IMPORTANT: Replace this with YOUR Firebase Web Config
+// Get it from: Firebase Console → Project Settings → Your apps → Web app
+// See AUTH_SETUP.md for detailed instructions
+
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "YOUR_DATABASE_URL",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    // 🔥 REPLACE THESE VALUES WITH YOUR ACTUAL FIREBASE CONFIG
+    // Get from: https://console.firebase.google.com/ → Your Project → Settings → Your apps
+    
+    apiKey: "YOUR_API_KEY_HERE",  // ⚠️ REPLACE THIS - looks like: AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    authDomain: "fintrack-c8625.firebaseapp.com",  // ✅ This should be correct
+    databaseURL: "https://fintrack-c8625-default-rtdb.firebaseio.com",  // ✅ This should be correct
+    projectId: "fintrack-c8625",  // ✅ This should be correct
+    storageBucket: "fintrack-c8625.appspot.com",  // ✅ This should be correct
+    messagingSenderId: "YOUR_SENDER_ID_HERE",  // ⚠️ REPLACE THIS - looks like: 123456789012
+    appId: "YOUR_APP_ID_HERE"  // ⚠️ REPLACE THIS - looks like: 1:123456789012:web:abcdef1234567890
 };
 
 // Initialize Firebase (will be loaded from CDN)
@@ -18,34 +23,43 @@ let currentUser = null;
 document.addEventListener('DOMContentLoaded', () => {
     // Check if Firebase is loaded
     if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        auth = firebase.auth();
-        
-        // Listen for auth state changes
-        auth.onAuthStateChanged((user) => {
-            currentUser = user;
-            if (user) {
-                // User is signed in
-                console.log('User signed in:', user.email);
-                localStorage.setItem('userId', user.uid);
-                localStorage.setItem('userEmail', user.email);
-                
-                // Redirect to dashboard if on login page
-                if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
-                    window.location.href = '/dashboard';
+        try {
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            console.log('✅ Firebase initialized successfully');
+            
+            // Listen for auth state changes
+            auth.onAuthStateChanged((user) => {
+                currentUser = user;
+                if (user) {
+                    // User is signed in
+                    console.log('User signed in:', user.email);
+                    localStorage.setItem('userId', user.uid);
+                    localStorage.setItem('userEmail', user.email);
+                    
+                    // Redirect to dashboard if on login page
+                    if (window.location.pathname === '/login' || window.location.pathname === '/signup') {
+                        window.location.href = '/dashboard';
+                    }
+                } else {
+                    // User is signed out
+                    console.log('User signed out');
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('userEmail');
+                    
+                    // Redirect to login if trying to access dashboard
+                    if (window.location.pathname === '/dashboard') {
+                        window.location.href = '/login';
+                    }
                 }
-            } else {
-                // User is signed out
-                console.log('User signed out');
-                localStorage.removeItem('userId');
-                localStorage.removeItem('userEmail');
-                
-                // Redirect to login if trying to access dashboard
-                if (window.location.pathname === '/dashboard') {
-                    window.location.href = '/login';
-                }
-            }
-        });
+            });
+        } catch (error) {
+            console.error('❌ Firebase initialization error:', error);
+            alert('Firebase configuration error. Please check your Firebase config in auth.js');
+        }
+    } else {
+        console.error('❌ Firebase SDK not loaded');
+        alert('Firebase SDK failed to load. Please check your internet connection.');
     }
 });
 
@@ -74,7 +88,20 @@ async function signUp(email, password, displayName) {
         return { success: true, user: userCredential.user };
     } catch (error) {
         console.error('Sign up error:', error);
-        return { success: false, error: error.message };
+        let errorMessage = error.message;
+        
+        // Provide user-friendly error messages
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'This email is already registered. Please login instead.';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address.';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'Password should be at least 6 characters.';
+        } else if (error.code === 'auth/api-key-not-valid') {
+            errorMessage = 'Firebase API key is not configured. Please update auth.js with your Firebase config.';
+        }
+        
+        return { success: false, error: errorMessage };
     }
 }
 
@@ -85,7 +112,22 @@ async function signIn(email, password) {
         return { success: true, user: userCredential.user };
     } catch (error) {
         console.error('Sign in error:', error);
-        return { success: false, error: error.message };
+        let errorMessage = error.message;
+        
+        // Provide user-friendly error messages
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = 'No account found with this email. Please sign up first.';
+        } else if (error.code === 'auth/wrong-password') {
+            errorMessage = 'Incorrect password. Please try again.';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address.';
+        } else if (error.code === 'auth/user-disabled') {
+            errorMessage = 'This account has been disabled.';
+        } else if (error.code === 'auth/api-key-not-valid') {
+            errorMessage = 'Firebase API key is not configured. Please update auth.js with your Firebase config.';
+        }
+        
+        return { success: false, error: errorMessage };
     }
 }
 
@@ -108,7 +150,15 @@ async function resetPassword(email) {
         return { success: true };
     } catch (error) {
         console.error('Password reset error:', error);
-        return { success: false, error: error.message };
+        let errorMessage = error.message;
+        
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = 'No account found with this email.';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address.';
+        }
+        
+        return { success: false, error: errorMessage };
     }
 }
 
