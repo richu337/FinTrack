@@ -1,32 +1,31 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../server');
+const admin = require('firebase-admin');
+
+// Get database reference
+const getDb = () => admin.database();
 
 // Helper function to get date range
-const getDateRange = (period) => {
+function getDateRange(period) {
   const now = new Date();
-  let startDate, endDate;
+  let startDate;
 
   switch (period) {
     case 'week':
-      startDate = new Date(now.setDate(now.getDate() - 7));
-      endDate = new Date();
+      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       break;
     case 'month':
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       break;
     case 'year':
       startDate = new Date(now.getFullYear(), 0, 1);
-      endDate = new Date(now.getFullYear(), 11, 31);
       break;
     default:
-      startDate = new Date(now.setDate(now.getDate() - 30));
-      endDate = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
-  return { startDate, endDate };
-};
+  return { startDate, endDate: now };
+}
 
 // Get spending summary
 router.get('/summary', async (req, res) => {
@@ -41,128 +40,87 @@ router.get('/summary', async (req, res) => {
     }
 
     const { startDate, endDate } = getDateRange(period);
-    const snapshot = await db.ref(`expenses/${userId}`).once('value');
     
+    const db = getDb();
+    const expensesRef = db.ref(`expenses/${userId}`);
+    const budgetsRef = db.ref(`budgets/${userId}`);
+
+    const [expensesSnapshot, budgetsSnapshot] = await Promise.all([
+      expensesRef.once('value'),
+      budgetsRef.once('value')
+    ]);
+
     let expenses = [];
-    snapshot.forEach((child) => {
-      expenses.push(child.val());
-    });
-
-    // Filter by date range
-    expenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate;
-    });
-
-    // Calculate totals
-    const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    
-    // Group by category
-    const categoryTotals = expenses.reduce((acc, exp) => {
-      acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
-      return acc;
-    }, {});
-
-    // Get budgets
-    const budgetSnapshot = await db.ref(`budgets/${userId}`).once('value');
-    let budgets = [];
-    budgetSnapshot.forEach((child) => {
-      budgets.push(child.val());
-    });
-
-    // Calculate budget status
-    const budgetStatus = budgets.map(budget => {
-      const spent = categoryTotals[budget.category] || 0;
-      const remaining = budget.amount - spent;
-      const percentage = (spent / budget.amount) * 100;
-
-      return {
-        category: budget.category,
-        budget: budget.amount,
-        spent,
-        remaining,
-        percentage: Math.round(percentage),
-        status: percentage > 100 ? 'over' : percentage > 80 ? 'warning' : 'good'
-      };
-    });
-
-    res.json({
-      success: true,
-      data: {
-        period,
-        dateRange: {
-          start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0]
-        },
-        totalSpent: Math.round(totalSpent * 100) / 100,
-        expenseCount: expenses.length,
-        categoryBreakdown: Object.entries(categoryTotals).map(([category, amount]) => ({
-          category,
-          amount: Math.round(amount * 100) / 100,
-          percentage: Math.round((amount / totalSpent) * 100)
-        })),
-        budgetStatus
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
-  }
-});
-
-// Get daily spending trend
-router.get('/trend', async (req, res) => {
-  try {
-    const { userId, period = 'month' } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'userId is required' 
+    if (expensesSnapshot.exists()) {
+      expensesSnapshot.forEach((childSnapshot) => {
+        const expense = childSnapshot.val();
+        const expenseDate = new Date(expense.date);
+        if (expenseDate >= startDate && expenseDate <= endDate) {
+          expenses.push({
+            id: childSnapshot.key,
+            ...expense
+          });
+        }
       });
     }
 
-    const { startDate, endDate } = getDateRange(period);
-    const snapshot = await db.ref(`expenses/${userId}`).once('value');
-    
-    let expenses = [];
-    snapshot.forEach((child) => {
-      expenses.push(child.val());
+    // Calculate totals
+    const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const expenseCount = expenses.length;
+
+    // Category breakdown
+    const categoryTotals = {};
+    expenses.forEach(exp => {
+      categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
 
-    // Filter by date range
-    expenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate;
-    });
+    const categoryBreakdown = Object.entries(categoryTotals).map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: ((amount / totalSpent) * 100).toFixed(1)
+    })).sort((a, b) => b.amount - a.amount);
 
-    // Group by date
-    const dailyTotals = expenses.reduce((acc, exp) => {
-      const date = exp.date.split('T')[0];
-      acc[date] = (acc[date] || 0) + exp.amount;
-      return acc;
-    }, {});
-
-    const trend = Object.entries(dailyTotals)
-      .map(([date, amount]) => ({
-        date,
-        amount: Math.round(amount * 100) / 100
-      }))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Budget status
+    let budgetStatus = [];
+    if (budgetsSnapshot.exists()) {
+      budgetsSnapshot.forEach((childSnapshot) => {
+        const budget = childSnapshot.val();
+        if (budget.period === period) {
+          const spent = categoryTotals[budget.category] || 0;
+          const percentage = (spent / budget.amount) * 100;
+          
+          budgetStatus.push({
+            category: budget.category,
+            budget: budget.amount,
+            spent,
+            remaining: budget.amount - spent,
+            percentage: percentage.toFixed(1),
+            status: percentage > 100 ? 'over' : percentage > 80 ? 'warning' : 'good'
+          });
+        }
+      });
+    }
 
     res.json({
       success: true,
       data: {
         period,
-        trend
+        totalSpent,
+        expenseCount,
+        categoryBreakdown,
+        budgetStatus,
+        dateRange: {
+          start: startDate.toISOString(),
+          end: endDate.toISOString()
+        }
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error generating summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating summary',
+      error: error.message
     });
   }
 });
@@ -180,30 +138,31 @@ router.get('/top-categories', async (req, res) => {
     }
 
     const { startDate, endDate } = getDateRange(period);
-    const snapshot = await db.ref(`expenses/${userId}`).once('value');
     
+    const db = getDb();
+    const expensesRef = db.ref(`expenses/${userId}`);
+    const snapshot = await expensesRef.once('value');
+
     let expenses = [];
-    snapshot.forEach((child) => {
-      expenses.push(child.val());
+    if (snapshot.exists()) {
+      snapshot.forEach((childSnapshot) => {
+        const expense = childSnapshot.val();
+        const expenseDate = new Date(expense.date);
+        if (expenseDate >= startDate && expenseDate <= endDate) {
+          expenses.push(expense);
+        }
+      });
+    }
+
+    // Calculate category totals
+    const categoryTotals = {};
+    expenses.forEach(exp => {
+      categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
     });
 
-    // Filter by date range
-    expenses = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate;
-    });
-
-    // Group by category
-    const categoryTotals = expenses.reduce((acc, exp) => {
-      acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
-      return acc;
-    }, {});
-
+    // Sort and limit
     const topCategories = Object.entries(categoryTotals)
-      .map(([category, amount]) => ({
-        category,
-        amount: Math.round(amount * 100) / 100
-      }))
+      .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, parseInt(limit));
 
@@ -212,9 +171,126 @@ router.get('/top-categories', async (req, res) => {
       data: topCategories
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error fetching top categories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching top categories',
+      error: error.message
+    });
+  }
+});
+
+// Get spending trends (daily breakdown)
+router.get('/trends', async (req, res) => {
+  try {
+    const { userId, period = 'month' } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'userId is required' 
+      });
+    }
+
+    const { startDate, endDate } = getDateRange(period);
+    
+    const db = getDb();
+    const expensesRef = db.ref(`expenses/${userId}`);
+    const snapshot = await expensesRef.once('value');
+
+    let expenses = [];
+    if (snapshot.exists()) {
+      snapshot.forEach((childSnapshot) => {
+        const expense = childSnapshot.val();
+        const expenseDate = new Date(expense.date);
+        if (expenseDate >= startDate && expenseDate <= endDate) {
+          expenses.push(expense);
+        }
+      });
+    }
+
+    // Group by date
+    const dailyTotals = {};
+    expenses.forEach(exp => {
+      const date = exp.date.split('T')[0]; // Get YYYY-MM-DD
+      dailyTotals[date] = (dailyTotals[date] || 0) + exp.amount;
+    });
+
+    // Convert to array and sort
+    const trends = Object.entries(dailyTotals)
+      .map(([date, amount]) => ({ date, amount }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    res.json({
+      success: true,
+      data: trends
+    });
+  } catch (error) {
+    console.error('Error fetching trends:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching trends',
+      error: error.message
+    });
+  }
+});
+
+// Get category comparison
+router.get('/category-comparison', async (req, res) => {
+  try {
+    const { userId, category } = req.query;
+
+    if (!userId || !category) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'userId and category are required' 
+      });
+    }
+
+    const db = getDb();
+    const expensesRef = db.ref(`expenses/${userId}`);
+    const snapshot = await expensesRef.once('value');
+
+    let expenses = [];
+    if (snapshot.exists()) {
+      snapshot.forEach((childSnapshot) => {
+        const expense = childSnapshot.val();
+        if (expense.category === category) {
+          expenses.push({
+            id: childSnapshot.key,
+            ...expense
+          });
+        }
+      });
+    }
+
+    // Calculate monthly totals
+    const monthlyTotals = {};
+    expenses.forEach(exp => {
+      const date = new Date(exp.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + exp.amount;
+    });
+
+    const comparison = Object.entries(monthlyTotals)
+      .map(([month, amount]) => ({ month, amount }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    res.json({
+      success: true,
+      data: {
+        category,
+        comparison,
+        totalExpenses: expenses.length,
+        totalAmount: expenses.reduce((sum, exp) => sum + exp.amount, 0)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching category comparison:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching category comparison',
+      error: error.message
     });
   }
 });
