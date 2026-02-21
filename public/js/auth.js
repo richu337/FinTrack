@@ -3,16 +3,13 @@
 // See AUTH_SETUP.md for detailed instructions
 
 const firebaseConfig = {
-    // 🔥 REPLACE THESE VALUES WITH YOUR ACTUAL FIREBASE CONFIG
-    // Get from: https://console.firebase.google.com/ → Your Project → Settings → Your apps
-    
-    apiKey: "YOUR_API_KEY_HERE",  // ⚠️ REPLACE THIS - looks like: AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    authDomain: "fintrack-c8625.firebaseapp.com",  // ✅ This should be correct
-    databaseURL: "https://fintrack-c8625-default-rtdb.firebaseio.com",  // ✅ This should be correct
-    projectId: "fintrack-c8625",  // ✅ This should be correct
-    storageBucket: "fintrack-c8625.appspot.com",  // ✅ This should be correct
-    messagingSenderId: "YOUR_SENDER_ID_HERE",  // ⚠️ REPLACE THIS - looks like: 123456789012
-    appId: "YOUR_APP_ID_HERE"  // ⚠️ REPLACE THIS - looks like: 1:123456789012:web:abcdef1234567890
+    apiKey: "AIzaSyAq7w787wO11erO4UaVZVQ6z40yOVPdGBk",
+    authDomain: "fintrack-c8625.firebaseapp.com",
+    databaseURL: "https://fintrack-c8625-default-rtdb.firebaseio.com",
+    projectId: "fintrack-c8625",
+    storageBucket: "fintrack-c8625.firebasestorage.app",
+    messagingSenderId: "535143965229",
+    appId: "1:535143965229:web:a5e4e9d5e59b2dd8228ea4"
 };
 
 // Initialize Firebase (will be loaded from CDN)
