@@ -24,6 +24,10 @@
                     <span class="nav-icon">💸</span>
                     <span>Expenses</span>
                 </a>
+                <a href="#" class="nav-item" data-view="savings">
+                    <span class="nav-icon">💰</span>
+                    <span>Savings</span>
+                </a>
                 <a href="#" class="nav-item" data-view="budgets">
                     <span class="nav-icon">🎯</span>
                     <span>Budgets</span>
@@ -40,6 +44,10 @@
             <header class="dashboard-header">
                 <h1 id="view-title">Overview</h1>
                 <div class="header-actions">
+                    <div class="user-info">
+                        <span class="user-email" id="userEmail">Loading...</span>
+                        <button class="btn btn-secondary btn-sm" onclick="signOut()">Logout</button>
+                    </div>
                     <select id="period-selector" class="period-select">
                         <option value="week">This Week</option>
                         <option value="month" selected>This Month</option>
@@ -122,6 +130,59 @@
                 </div>
             </div>
 
+            <!-- Savings View -->
+            <div id="savings-view" class="view">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Saved</div>
+                        <div class="stat-value" id="totalSaved">₹0</div>
+                        <div class="stat-change">All time</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">This Period</div>
+                        <div class="stat-value" id="periodSaved">₹0</div>
+                        <div class="stat-change">Current period</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Savings Count</div>
+                        <div class="stat-value" id="savingsCount">0</div>
+                        <div class="stat-change">Total entries</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Top Goal</div>
+                        <div class="stat-value" id="topGoal" style="font-size: 18px;">None</div>
+                        <div class="stat-change">Most saved for</div>
+                    </div>
+                </div>
+
+                <div class="content-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">All Savings</h3>
+                            <div class="filters">
+                                <input type="text" id="savingsSearch" class="filter-select" placeholder="Search by goal...">
+                                <select id="savingsPeriod" class="filter-select">
+                                    <option value="week">This Week</option>
+                                    <option value="month" selected>This Month</option>
+                                    <option value="year">This Year</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="showAddSavingModal()">+ Add Saving</button>
+                            </div>
+                        </div>
+                        <div id="savingsList" class="expense-list">
+                            <div class="empty-state">No savings yet</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 class="card-title">Top Savings Goals</h3>
+                        <div id="topGoalsList" class="categories-list">
+                            <div class="empty-state">No savings goals yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Budgets View -->
             <div id="budgets-view" class="view">
                 <div class="card">
@@ -152,7 +213,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Add Expense</h2>
-                <button class="modal-close">&times;</button>
+                <button class="modal-close" onclick="closeExpenseModal()">&times;</button>
             </div>
             <form id="expense-form">
                 <div class="form-group">
@@ -181,8 +242,40 @@
                     <input type="date" id="expense-date" required>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeExpenseModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Add Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Saving Modal -->
+    <div id="savingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="savingModalTitle">Add Saving</h2>
+                <button class="modal-close" onclick="closeSavingModal()">&times;</button>
+            </div>
+            <form id="savingForm">
+                <div class="form-group">
+                    <label for="savingAmount">Amount (₹) *</label>
+                    <input type="number" id="savingAmount" step="0.01" required placeholder="Enter amount saved">
+                </div>
+                <div class="form-group">
+                    <label for="savingGoal">Saving Goal *</label>
+                    <input type="text" id="savingGoal" required placeholder="e.g., Emergency Fund, Vacation, New Phone">
+                </div>
+                <div class="form-group">
+                    <label for="savingDescription">Description (Optional)</label>
+                    <input type="text" id="savingDescription" placeholder="Add notes about this saving">
+                </div>
+                <div class="form-group">
+                    <label for="savingDate">Date *</label>
+                    <input type="date" id="savingDate" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeSavingModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
             </form>
         </div>
@@ -193,7 +286,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Set Budget</h2>
-                <button class="modal-close">&times;</button>
+                <button class="modal-close" onclick="closeBudgetModal()">&times;</button>
             </div>
             <form id="budget-form">
                 <div class="form-group">
@@ -216,18 +309,25 @@
                 <div class="form-group">
                     <label for="budget-period">Period</label>
                     <select id="budget-period" required>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly" selected>Monthly</option>
+                        <option value="week">Weekly</option>
+                        <option value="month" selected>Monthly</option>
                     </select>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeBudgetModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Set Budget</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <!-- App Scripts -->
+    <script src="/js/auth.js"></script>
     <script src="/js/dashboard.js"></script>
+    <script src="/js/savings.js"></script>
 </body>
 </html>
