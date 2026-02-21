@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Display user email in header
+    // Display user email in header (update existing element)
     const userEmail = localStorage.getItem('userEmail');
     if (userEmail) {
         updateUserDisplay(userEmail);
@@ -35,25 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setTodayDate();
 });
 
-// Update user display
+// Update user display - FIX: Update existing element instead of creating duplicate
 function updateUserDisplay(email) {
-    const headerActions = document.querySelector('.header-actions');
-    const userInfo = document.createElement('div');
-    userInfo.className = 'user-info';
-    userInfo.innerHTML = `
-        <span class="user-email">${email}</span>
-        <button class="btn btn-secondary" id="logout-btn">Logout</button>
-    `;
-    headerActions.insertBefore(userInfo, headerActions.firstChild);
-
-    // Add logout handler
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-        if (confirm('Are you sure you want to logout?')) {
-            localStorage.removeItem('userId');
-            localStorage.removeItem('userEmail');
-            window.location.href = '/login';
-        }
-    });
+    const userEmailElement = document.getElementById('userEmail');
+    if (userEmailElement) {
+        userEmailElement.textContent = email;
+    }
 }
 
 // Event Listeners
@@ -132,6 +119,7 @@ function switchView(view) {
     const titles = {
         overview: 'Overview',
         expenses: 'All Expenses',
+        savings: 'Savings Tracker',
         budgets: 'Budget Management',
         reports: 'Reports & Analytics'
     };
@@ -142,6 +130,11 @@ function switchView(view) {
         renderBudgets();
     } else if (view === 'reports') {
         loadReports();
+    } else if (view === 'savings') {
+        // Savings data is loaded by savings.js
+        if (typeof loadSavings === 'function') {
+            loadSavings();
+        }
     }
 }
 
@@ -288,48 +281,31 @@ function renderBudgets() {
     }
 
     container.innerHTML = budgets.map(budget => {
-        const spent = calculateCategorySpent(budget.category);
+        const spent = expenses
+            .filter(e => e.category === budget.category)
+            .reduce((sum, e) => sum + e.amount, 0);
+        
         const percentage = (spent / budget.amount) * 100;
-        const status = percentage > 100 ? 'danger' : percentage > 80 ? 'warning' : 'success';
+        let statusClass = '';
+        if (percentage >= 100) statusClass = 'danger';
+        else if (percentage >= 80) statusClass = 'warning';
 
         return `
             <div class="budget-card">
                 <div class="budget-header">
                     <div class="budget-category">${getCategoryIcon(budget.category)} ${budget.category}</div>
-                    <div class="budget-amount">₹${budget.amount.toFixed(2)} / ${budget.period}</div>
+                    <div class="budget-amount">₹${spent.toFixed(2)} / ₹${budget.amount.toFixed(2)}</div>
                 </div>
                 <div class="budget-progress">
-                    <div class="budget-progress-bar ${status}" style="width: ${Math.min(percentage, 100)}%"></div>
+                    <div class="budget-progress-bar ${statusClass}" style="width: ${Math.min(percentage, 100)}%"></div>
                 </div>
                 <div class="budget-stats">
-                    <span>Spent: ₹${spent.toFixed(2)}</span>
-                    <span>Remaining: ₹${Math.max(0, budget.amount - spent).toFixed(2)}</span>
-                    <span>${percentage.toFixed(0)}%</span>
+                    <span>${percentage.toFixed(1)}% used</span>
+                    <span>₹${(budget.amount - spent).toFixed(2)} remaining</span>
                 </div>
             </div>
         `;
     }).join('');
-}
-
-function renderCategoryChart(categories) {
-    const container = document.getElementById('category-chart');
-    
-    if (categories.length === 0) {
-        container.innerHTML = '<div class="empty-state">No expenses yet</div>';
-        return;
-    }
-
-    const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444'];
-    
-    container.innerHTML = categories.map((cat, index) => `
-        <div class="category-item">
-            <div>
-                <span class="category-name">${getCategoryIcon(cat.category)} ${cat.category}</span>
-                <span style="color: var(--gray); font-size: 12px; margin-left: 8px;">${cat.percentage}%</span>
-            </div>
-            <div class="category-amount">₹${cat.amount.toFixed(2)}</div>
-        </div>
-    `).join('');
 }
 
 function renderTopCategories(categories) {
@@ -340,34 +316,59 @@ function renderTopCategories(categories) {
         return;
     }
 
-    container.innerHTML = categories.map((cat, index) => `
+    container.innerHTML = categories.map(cat => `
         <div class="category-item">
-            <div class="category-name">
-                <span style="font-size: 24px; margin-right: 8px;">${index + 1}</span>
-                ${getCategoryIcon(cat.category)} ${cat.category}
-            </div>
-            <div class="category-amount">₹${cat.amount.toFixed(2)}</div>
+            <div class="category-name">${getCategoryIcon(cat.category)} ${cat.category}</div>
+            <div class="category-amount">₹${cat.total.toFixed(2)}</div>
         </div>
     `).join('');
+}
+
+function renderCategoryChart(categories) {
+    const container = document.getElementById('category-chart');
+    
+    if (categories.length === 0) {
+        container.innerHTML = '<div class="empty-state">No expenses yet</div>';
+        return;
+    }
+
+    // Simple bar chart representation
+    const maxAmount = Math.max(...categories.map(c => c.total));
+    
+    container.innerHTML = categories.map(cat => {
+        const percentage = (cat.total / maxAmount) * 100;
+        return `
+            <div class="category-item">
+                <div class="category-name">${getCategoryIcon(cat.category)} ${cat.category}</div>
+                <div class="budget-progress">
+                    <div class="budget-progress-bar" style="width: ${percentage}%"></div>
+                </div>
+                <div class="category-amount">₹${cat.total.toFixed(2)}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Form Handlers
 async function handleExpenseSubmit(e) {
     e.preventDefault();
     
-    const expense = {
-        userId: USER_ID,
-        amount: parseFloat(document.getElementById('expense-amount').value),
-        category: document.getElementById('expense-category').value,
-        description: document.getElementById('expense-description').value,
-        date: document.getElementById('expense-date').value
-    };
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    const category = document.getElementById('expense-category').value;
+    const description = document.getElementById('expense-description').value;
+    const date = document.getElementById('expense-date').value;
 
     try {
         const response = await fetch(`${API_BASE}/expenses`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(expense)
+            body: JSON.stringify({
+                userId: USER_ID,
+                amount,
+                category,
+                description,
+                date
+            })
         });
 
         const data = await response.json();
@@ -375,11 +376,10 @@ async function handleExpenseSubmit(e) {
         if (data.success) {
             showNotification('Expense added successfully!', 'success');
             closeModal('expense-modal');
-            e.target.reset();
-            setTodayDate();
+            document.getElementById('expense-form').reset();
             loadData();
         } else {
-            showNotification(data.message || 'Error adding expense', 'error');
+            showNotification(data.message, 'error');
         }
     } catch (error) {
         console.error('Error adding expense:', error);
@@ -390,18 +390,20 @@ async function handleExpenseSubmit(e) {
 async function handleBudgetSubmit(e) {
     e.preventDefault();
     
-    const budget = {
-        userId: USER_ID,
-        category: document.getElementById('budget-category').value,
-        amount: parseFloat(document.getElementById('budget-amount').value),
-        period: document.getElementById('budget-period').value
-    };
+    const category = document.getElementById('budget-category').value;
+    const amount = parseFloat(document.getElementById('budget-amount').value);
+    const period = document.getElementById('budget-period').value;
 
     try {
         const response = await fetch(`${API_BASE}/budgets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(budget)
+            body: JSON.stringify({
+                userId: USER_ID,
+                category,
+                amount,
+                period
+            })
         });
 
         const data = await response.json();
@@ -409,10 +411,11 @@ async function handleBudgetSubmit(e) {
         if (data.success) {
             showNotification('Budget set successfully!', 'success');
             closeModal('budget-modal');
-            e.target.reset();
-            loadData();
+            document.getElementById('budget-form').reset();
+            loadBudgets();
+            renderBudgets();
         } else {
-            showNotification(data.message || 'Error setting budget', 'error');
+            showNotification(data.message, 'error');
         }
     } catch (error) {
         console.error('Error setting budget:', error);
@@ -435,7 +438,7 @@ async function deleteExpense(id) {
             showNotification('Expense deleted successfully!', 'success');
             loadData();
         } else {
-            showNotification(data.message || 'Error deleting expense', 'error');
+            showNotification(data.message, 'error');
         }
     } catch (error) {
         console.error('Error deleting expense:', error);
@@ -443,18 +446,13 @@ async function deleteExpense(id) {
     }
 }
 
-// Helper Functions
+// Filter Functions
 function filterExpenses(category) {
-    if (!category) {
-        renderExpenses();
-        return;
-    }
-
-    const filtered = expenses.filter(e => e.category === category);
+    const filtered = category ? expenses.filter(e => e.category === category) : expenses;
     const container = document.getElementById('all-expenses');
     
     if (filtered.length === 0) {
-        container.innerHTML = '<div class="empty-state">No expenses found in this category</div>';
+        container.innerHTML = '<div class="empty-state">No expenses found</div>';
         return;
     }
 
@@ -474,12 +472,24 @@ function filterExpenses(category) {
     `).join('');
 }
 
-function calculateCategorySpent(category) {
-    return expenses
-        .filter(e => e.category === category)
-        .reduce((sum, e) => sum + e.amount, 0);
+// Modal Functions
+function openModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
 }
 
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
+
+function closeExpenseModal() {
+    closeModal('expense-modal');
+}
+
+function closeBudgetModal() {
+    closeModal('budget-modal');
+}
+
+// Utility Functions
 function getCategoryIcon(category) {
     const icons = {
         'Food': '🍔',
@@ -504,20 +514,17 @@ function setTodayDate() {
     document.getElementById('expense-date').value = today;
 }
 
-function openModal(modalId) {
-    document.getElementById(modalId).classList.add('active');
-}
-
-function closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
-}
-
 function showNotification(message, type = 'info') {
-    // Simple alert for now - can be enhanced with a toast notification system
-    alert(message);
-}
-
-// Edit function placeholder
-function editExpense(id) {
-    alert('Edit functionality coming soon!');
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
