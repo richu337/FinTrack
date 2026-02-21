@@ -53,10 +53,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Routes
+// API Routes
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/budgets', require('./routes/budgets'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/savings', require('./routes/savings'));
 
 // Home route
 app.get('/', (req, res) => {
