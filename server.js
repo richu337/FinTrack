@@ -45,8 +45,6 @@ try {
   process.exit(1);
 }
 
-const db = admin.database();
-
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -104,4 +102,4 @@ app.listen(PORT, () => {
   console.log(`🔐 Login at http://localhost:${PORT}/login`);
 });
 
-module.exports = { app, db };
+module.exports = app;
