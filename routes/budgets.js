@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../server');
+const admin = require('firebase-admin');
+
+// Get database reference
+const getDb = () => admin.database();
 
 // Get all budgets
 router.get('/', async (req, res) => {
@@ -14,34 +17,41 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const snapshot = await db.ref(`budgets/${userId}`).once('value');
+    const db = getDb();
+    const budgetsRef = db.ref(`budgets/${userId}`);
+    const snapshot = await budgetsRef.once('value');
+    
     let budgets = [];
     
-    snapshot.forEach((child) => {
-      budgets.push({
-        id: child.key,
-        ...child.val()
+    if (snapshot.exists()) {
+      snapshot.forEach((childSnapshot) => {
+        budgets.push({
+          id: childSnapshot.key,
+          ...childSnapshot.val()
+        });
       });
-    });
+    }
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: budgets,
       count: budgets.length
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error fetching budgets:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching budgets',
+      error: error.message
     });
   }
 });
 
-// Get budget by category
-router.get('/category/:category', async (req, res) => {
+// Get single budget
+router.get('/:id', async (req, res) => {
   try {
+    const { id } = req.params;
     const { userId } = req.query;
-    const { category } = req.params;
 
     if (!userId) {
       return res.status(400).json({ 
@@ -50,61 +60,75 @@ router.get('/category/:category', async (req, res) => {
       });
     }
 
-    const snapshot = await db.ref(`budgets/${userId}`).once('value');
-    let budget = null;
-    
-    snapshot.forEach((child) => {
-      if (child.val().category === category) {
-        budget = {
-          id: child.key,
-          ...child.val()
-        };
-      }
-    });
+    const db = getDb();
+    const budgetRef = db.ref(`budgets/${userId}/${id}`);
+    const snapshot = await budgetRef.once('value');
 
-    if (!budget) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Budget not found for this category' 
+    if (!snapshot.exists()) {
+      return res.status(404).json({
+        success: false,
+        message: 'Budget not found'
       });
     }
 
-    res.json({ 
-      success: true, 
-      data: budget
+    res.json({
+      success: true,
+      data: {
+        id: snapshot.key,
+        ...snapshot.val()
+      }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error fetching budget:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching budget',
+      error: error.message
     });
   }
 });
 
-// Create or update budget
+// Create new budget
 router.post('/', async (req, res) => {
   try {
     const { userId, category, amount, period } = req.body;
 
+    // Validation
     if (!userId || !category || !amount || !period) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'userId, category, amount, and period are required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: userId, category, amount, period'
+      });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be greater than 0'
+      });
+    }
+
+    const validPeriods = ['week', 'month', 'year'];
+    if (!validPeriods.includes(period)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Period must be one of: week, month, year'
       });
     }
 
     const budget = {
       category,
       amount: parseFloat(amount),
-      period, // 'weekly' or 'monthly'
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      period,
+      createdAt: new Date().toISOString()
     };
 
-    const newBudgetRef = await db.ref(`budgets/${userId}`).push(budget);
+    const db = getDb();
+    const budgetsRef = db.ref(`budgets/${userId}`);
+    const newBudgetRef = await budgetsRef.push(budget);
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'Budget created successfully',
       data: {
         id: newBudgetRef.key,
@@ -112,9 +136,11 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error creating budget:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating budget',
+      error: error.message
     });
   }
 });
@@ -122,8 +148,8 @@ router.post('/', async (req, res) => {
 // Update budget
 router.put('/:id', async (req, res) => {
   try {
-    const { userId, amount, period } = req.body;
     const { id } = req.params;
+    const { userId, category, amount, period } = req.body;
 
     if (!userId) {
       return res.status(400).json({ 
@@ -132,27 +158,38 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    const db = getDb();
     const budgetRef = db.ref(`budgets/${userId}/${id}`);
     const snapshot = await budgetRef.once('value');
 
     if (!snapshot.exists()) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Budget not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Budget not found'
       });
     }
 
     const updates = {};
+    if (category !== undefined) updates.category = category;
     if (amount !== undefined) updates.amount = parseFloat(amount);
-    if (period) updates.period = period;
+    if (period !== undefined) {
+      const validPeriods = ['week', 'month', 'year'];
+      if (!validPeriods.includes(period)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Period must be one of: week, month, year'
+        });
+      }
+      updates.period = period;
+    }
     updates.updatedAt = new Date().toISOString();
 
     await budgetRef.update(updates);
 
     const updatedSnapshot = await budgetRef.once('value');
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Budget updated successfully',
       data: {
         id: updatedSnapshot.key,
@@ -160,9 +197,11 @@ router.put('/:id', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error updating budget:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating budget',
+      error: error.message
     });
   }
 });
@@ -170,8 +209,8 @@ router.put('/:id', async (req, res) => {
 // Delete budget
 router.delete('/:id', async (req, res) => {
   try {
-    const { userId } = req.query;
     const { id } = req.params;
+    const { userId } = req.query;
 
     if (!userId) {
       return res.status(400).json({ 
@@ -180,26 +219,29 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
+    const db = getDb();
     const budgetRef = db.ref(`budgets/${userId}/${id}`);
     const snapshot = await budgetRef.once('value');
 
     if (!snapshot.exists()) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Budget not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Budget not found'
       });
     }
 
     await budgetRef.remove();
 
-    res.json({ 
-      success: true, 
-      message: 'Budget deleted successfully' 
+    res.json({
+      success: true,
+      message: 'Budget deleted successfully'
     });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    console.error('Error deleting budget:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting budget',
+      error: error.message
     });
   }
 });
