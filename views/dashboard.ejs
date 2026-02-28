@@ -53,6 +53,7 @@
                         <option value="month" selected>This Month</option>
                         <option value="year">This Year</option>
                     </select>
+                    <button class="btn btn-success" id="add-saving-btn" style="display: none;">+ Add Saving</button>
                     <button class="btn btn-primary" id="add-expense-btn">+ Add Expense</button>
                 </div>
             </header>
@@ -97,13 +98,6 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="card">
-                    <h3 class="card-title">Spending Trend</h3>
-                    <div id="trend-chart" class="chart-container">
-                        <div class="empty-state">Add expenses to see your spending trend</div>
-                    </div>
-                </div>
             </div>
 
             <!-- Expenses View -->
@@ -114,13 +108,13 @@
                         <div class="filters">
                             <select id="category-filter" class="filter-select">
                                 <option value="">All Categories</option>
-                                <option value="Food">Food</option>
-                                <option value="Travel">Travel</option>
-                                <option value="Shopping">Shopping</option>
-                                <option value="Bills">Bills</option>
-                                <option value="Entertainment">Entertainment</option>
-                                <option value="Education">Education</option>
-                                <option value="Other">Other</option>
+                                <option value="Food">🍔 Food</option>
+                                <option value="Travel">🚗 Travel</option>
+                                <option value="Shopping">🛍 Shopping</option>
+                                <option value="Bills">📄 Bills</option>
+                                <option value="Entertainment">🎬 Entertainment</option>
+                                <option value="Education">📚 Education</option>
+                                <option value="Other">📦 Other</option>
                             </select>
                         </div>
                     </div>
@@ -149,7 +143,7 @@
                         <div class="stat-change">Total entries</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-label">Top Goal</div>
+                        <div class="stat-label">Top Category</div>
                         <div class="stat-value" id="topGoal" style="font-size: 18px;">None</div>
                         <div class="stat-change">Most saved for</div>
                     </div>
@@ -160,7 +154,7 @@
                         <div class="card-header">
                             <h3 class="card-title">All Savings</h3>
                             <div class="filters">
-                                <input type="text" id="savingsSearch" class="filter-select" placeholder="Search by goal...">
+                                <input type="text" id="savingsSearch" class="filter-select" placeholder="Search...">
                                 <select id="savingsPeriod" class="filter-select">
                                     <option value="week">This Week</option>
                                     <option value="month" selected>This Month</option>
@@ -175,9 +169,9 @@
                     </div>
 
                     <div class="card">
-                        <h3 class="card-title">Top Savings Goals</h3>
+                        <h3 class="card-title">Top Savings Categories</h3>
                         <div id="topGoalsList" class="categories-list">
-                            <div class="empty-state">No savings goals yet</div>
+                            <div class="empty-state">No savings categories yet</div>
                         </div>
                     </div>
                 </div>
@@ -198,10 +192,12 @@
 
             <!-- Reports View -->
             <div id="reports-view" class="view">
-                <div class="card">
-                    <h3 class="card-title">Top Spending Categories</h3>
-                    <div id="top-categories" class="categories-list">
-                        <div class="empty-state">No data available</div>
+                <div class="content-grid">
+                    <div class="card">
+                        <h3 class="card-title">Top Spending Categories</h3>
+                        <div id="top-categories" class="categories-list">
+                            <div class="empty-state">No data available</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -234,8 +230,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="expense-description">Description</label>
-                    <input type="text" id="expense-description" placeholder="Optional">
+                    <label for="expense-description">Description (Optional)</label>
+                    <input type="text" id="expense-description" placeholder="What did you spend on?">
                 </div>
                 <div class="form-group">
                     <label for="expense-date">Date</label>
@@ -262,8 +258,8 @@
                     <input type="number" id="savingAmount" step="0.01" required placeholder="Enter amount saved">
                 </div>
                 <div class="form-group">
-                    <label for="savingGoal">Saving Goal *</label>
-                    <input type="text" id="savingGoal" required placeholder="e.g., Emergency Fund, Vacation, New Phone">
+                    <label for="savingGoal">Category (Optional)</label>
+                    <input type="text" id="savingGoal" placeholder="e.g., Emergency Fund, Vacation, General Savings">
                 </div>
                 <div class="form-group">
                     <label for="savingDescription">Description (Optional)</label>
