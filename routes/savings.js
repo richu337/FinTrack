@@ -45,7 +45,7 @@ router.get('/', async (req, res) => {
     // Filter by goal if provided
     if (goal) {
       savings = savings.filter(saving => 
-        saving.goal.toLowerCase().includes(goal.toLowerCase())
+        saving.goal && saving.goal.toLowerCase().includes(goal.toLowerCase())
       );
     }
 
@@ -117,11 +117,11 @@ router.post('/', async (req, res) => {
   try {
     const { userId, amount, goal, description, date } = req.body;
 
-    // Validation
-    if (!userId || !amount || !goal || !date) {
+    // Validation - goal is now optional
+    if (!userId || !amount || !date) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: userId, amount, goal, date'
+        message: 'Missing required fields: userId, amount, date'
       });
     }
 
@@ -134,7 +134,7 @@ router.post('/', async (req, res) => {
 
     const saving = {
       amount: parseFloat(amount),
-      goal,
+      goal: goal || 'General Savings',  // Default to 'General Savings' if not provided
       description: description || '',
       date,
       createdAt: new Date().toISOString()
@@ -188,7 +188,7 @@ router.put('/:id', async (req, res) => {
 
     const updates = {};
     if (amount !== undefined) updates.amount = parseFloat(amount);
-    if (goal !== undefined) updates.goal = goal;
+    if (goal !== undefined) updates.goal = goal || 'General Savings';
     if (description !== undefined) updates.description = description;
     if (date !== undefined) updates.date = date;
     updates.updatedAt = new Date().toISOString();
@@ -255,15 +255,15 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Get savings summary
+// Get savings summary and statistics
 router.get('/summary/stats', async (req, res) => {
   try {
     const { userId, period = 'month' } = req.query;
 
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'userId is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'userId is required'
       });
     }
 
@@ -299,23 +299,26 @@ router.get('/summary/stats', async (req, res) => {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    // Filter by period
-    const periodSavings = savings.filter(saving => {
-      const savingDate = new Date(saving.date);
-      return savingDate >= startDate && savingDate <= now;
-    });
+    // Filter savings for the period
+    const periodSavings = savings.filter(saving => 
+      new Date(saving.date) >= startDate
+    );
 
     // Calculate totals
-    const totalSaved = savings.reduce((sum, saving) => sum + saving.amount, 0);
-    const periodTotal = periodSavings.reduce((sum, saving) => sum + saving.amount, 0);
+    const totalSaved = savings.reduce((sum, s) => sum + s.amount, 0);
+    const periodTotal = periodSavings.reduce((sum, s) => sum + s.amount, 0);
 
-    // Group by goal
-    const goalBreakdown = {};
+    // Group by goal and calculate top goals
+    const goalTotals = {};
     savings.forEach(saving => {
-      goalBreakdown[saving.goal] = (goalBreakdown[saving.goal] || 0) + saving.amount;
+      const goalName = saving.goal || 'General Savings';
+      if (!goalTotals[goalName]) {
+        goalTotals[goalName] = 0;
+      }
+      goalTotals[goalName] += saving.amount;
     });
 
-    const topGoals = Object.entries(goalBreakdown)
+    const topGoals = Object.entries(goalTotals)
       .map(([goal, amount]) => ({ goal, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
@@ -327,15 +330,14 @@ router.get('/summary/stats', async (req, res) => {
         periodTotal,
         savingsCount: savings.length,
         periodCount: periodSavings.length,
-        topGoals,
-        period
+        topGoals
       }
     });
   } catch (error) {
-    console.error('Error fetching savings summary:', error);
+    console.error('Error fetching savings stats:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching savings summary',
+      message: 'Error fetching savings statistics',
       error: error.message
     });
   }
