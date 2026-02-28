@@ -30,7 +30,7 @@ function displaySavings() {
         savingsList.innerHTML = `
             <div class="empty-state">
                 <p>💰 No savings yet</p>
-                <p>Start saving money for your goals!</p>
+                <p>Start saving money today!</p>
             </div>
         `;
         return;
@@ -39,7 +39,7 @@ function displaySavings() {
     savingsList.innerHTML = savings.map(saving => `
         <div class="saving-item">
             <div class="saving-info">
-                <div class="saving-goal">${saving.goal}</div>
+                <div class="saving-goal">${saving.goal || 'General Savings'}</div>
                 <div class="saving-description">${saving.description || 'No description'}</div>
                 <div class="saving-date">${formatDate(saving.date)}</div>
             </div>
@@ -85,13 +85,13 @@ function displayTopGoals(topGoals) {
     if (!topGoalsList) return;
 
     if (topGoals.length === 0) {
-        topGoalsList.innerHTML = '<div class="empty-state"><p>No savings goals yet</p></div>';
+        topGoalsList.innerHTML = '<div class="empty-state"><p>No savings categories yet</p></div>';
         return;
     }
 
     topGoalsList.innerHTML = topGoals.map(goal => `
         <div class="goal-item">
-            <div class="goal-name">${goal.goal}</div>
+            <div class="goal-name">${goal.goal || 'General Savings'}</div>
             <div class="goal-amount">₹${goal.amount.toFixed(2)}</div>
         </div>
     `).join('');
@@ -114,7 +114,7 @@ function editSaving(id) {
     editingSavingId = id;
     document.getElementById('savingModalTitle').textContent = 'Edit Saving';
     document.getElementById('savingAmount').value = saving.amount;
-    document.getElementById('savingGoal').value = saving.goal;
+    document.getElementById('savingGoal').value = saving.goal || '';
     document.getElementById('savingDescription').value = saving.description || '';
     document.getElementById('savingDate').value = saving.date;
     document.getElementById('savingModal').classList.add('active');
@@ -132,12 +132,12 @@ async function handleSavingSubmit(event) {
 
     const userId = getCurrentUserId();
     const amount = parseFloat(document.getElementById('savingAmount').value);
-    const goal = document.getElementById('savingGoal').value.trim();
+    const goal = document.getElementById('savingGoal').value.trim() || 'General Savings';
     const description = document.getElementById('savingDescription').value.trim();
     const date = document.getElementById('savingDate').value;
 
-    if (!amount || !goal || !date) {
-        showNotification('Please fill in all required fields', 'error');
+    if (!amount || !date) {
+        showNotification('Please fill in amount and date', 'error');
         return;
     }
 
@@ -213,70 +213,71 @@ async function deleteSaving(id) {
     }
 }
 
-// Filter savings
-function filterSavings() {
+// Search savings
+function searchSavings() {
     const searchTerm = document.getElementById('savingsSearch')?.value.toLowerCase() || '';
     
-    const filteredSavings = savings.filter(saving => {
-        return saving.goal.toLowerCase().includes(searchTerm) ||
-               (saving.description && saving.description.toLowerCase().includes(searchTerm));
-    });
+    if (!searchTerm) {
+        displaySavings();
+        return;
+    }
 
-    // Temporarily update savings array for display
-    const originalSavings = [...savings];
-    savings = filteredSavings;
-    displaySavings();
-    savings = originalSavings;
+    const filtered = savings.filter(saving => 
+        (saving.goal && saving.goal.toLowerCase().includes(searchTerm)) ||
+        (saving.description && saving.description.toLowerCase().includes(searchTerm))
+    );
+
+    const savingsList = document.getElementById('savingsList');
+    
+    if (filtered.length === 0) {
+        savingsList.innerHTML = '<div class="empty-state"><p>No savings found</p></div>';
+        return;
+    }
+
+    savingsList.innerHTML = filtered.map(saving => `
+        <div class="saving-item">
+            <div class="saving-info">
+                <div class="saving-goal">${saving.goal || 'General Savings'}</div>
+                <div class="saving-description">${saving.description || 'No description'}</div>
+                <div class="saving-date">${formatDate(saving.date)}</div>
+            </div>
+            <div class="saving-amount">₹${saving.amount.toFixed(2)}</div>
+            <div class="saving-actions">
+                <button class="btn-edit" onclick="editSaving('${saving.id}')">Edit</button>
+                <button class="btn-delete" onclick="deleteSaving('${saving.id}')">Delete</button>
+            </div>
+        </div>
+    `).join('');
 }
 
-// Format date for display
+// Utility functions
+function getCurrentUserId() {
+    return localStorage.getItem('userId') || 'demo-user';
+}
+
 function formatDate(dateString) {
     const date = new Date(dateString);
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
 }
 
-// Show notification
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
-    
-    // Add to body
-    document.body.appendChild(notification);
-    
-    // Show notification
-    setTimeout(() => notification.classList.add('show'), 100);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-// Initialize savings when DOM is loaded
+// Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if we're on the savings view
-    const savingsView = document.getElementById('savingsView');
-    if (savingsView) {
-        loadSavings();
-        
-        // Add event listeners
-        const savingForm = document.getElementById('savingForm');
-        if (savingForm) {
-            savingForm.addEventListener('submit', handleSavingSubmit);
-        }
+    // Saving form submission
+    const savingForm = document.getElementById('savingForm');
+    if (savingForm) {
+        savingForm.addEventListener('submit', handleSavingSubmit);
+    }
 
-        const savingsPeriod = document.getElementById('savingsPeriod');
-        if (savingsPeriod) {
-            savingsPeriod.addEventListener('change', updateSavingsStats);
-        }
+    // Search input
+    const savingsSearch = document.getElementById('savingsSearch');
+    if (savingsSearch) {
+        savingsSearch.addEventListener('input', searchSavings);
+    }
 
-        const savingsSearch = document.getElementById('savingsSearch');
-        if (savingsSearch) {
-            savingsSearch.addEventListener('input', filterSavings);
-        }
+    // Period selector
+    const savingsPeriod = document.getElementById('savingsPeriod');
+    if (savingsPeriod) {
+        savingsPeriod.addEventListener('change', updateSavingsStats);
     }
 });
