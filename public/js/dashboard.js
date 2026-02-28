@@ -65,6 +65,13 @@ function initializeEventListeners() {
         openModal('expense-modal');
     });
 
+    // Add saving button
+    document.getElementById('add-saving-btn')?.addEventListener('click', () => {
+        if (typeof showAddSavingModal === 'function') {
+            showAddSavingModal();
+        }
+    });
+
     // Add budget button
     document.getElementById('add-budget-btn')?.addEventListener('click', () => {
         openModal('budget-modal');
@@ -124,6 +131,20 @@ function switchView(view) {
         reports: 'Reports & Analytics'
     };
     document.getElementById('view-title').textContent = titles[view];
+
+    // Show/hide Add Saving button based on view
+    const addSavingBtn = document.getElementById('add-saving-btn');
+    const addExpenseBtn = document.getElementById('add-expense-btn');
+    
+    if (view === 'savings') {
+        // Show Add Saving button, hide Add Expense button
+        addSavingBtn.style.display = 'inline-block';
+        addExpenseBtn.style.display = 'none';
+    } else {
+        // Show Add Expense button, hide Add Saving button
+        addSavingBtn.style.display = 'none';
+        addExpenseBtn.style.display = 'inline-block';
+    }
 
     // Load view-specific data
     if (view === 'budgets') {
